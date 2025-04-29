@@ -19,23 +19,29 @@ aankoopprijs = st.number_input("Aankoopprijs per aandeel ($)", min_value=0.0, st
 
 if st.button("Voeg Transactie Toe"):
     if aandeel and aantal > 0 and aankoopprijs > 0:
-        # Haal de actuele prijs op via yfinance
-        ticker = yf.Ticker(aandeel)
-        huidig_data = ticker.history(period="1d")
-        huidig_prijs = huidig_data["Close"].iloc[-1]
-        
-        winst_verlies = (huidig_prijs - aankoopprijs) * aantal
+        try:
+            # Haal de actuele prijs op via yfinance
+            ticker = yf.Ticker(aandeel)
+            huidig_data = ticker.history(period="1d")
+            huidig_prijs = huidig_data["Close"].iloc[-1]
 
-        # Voeg de transactie toe aan de portefeuille
-        st.session_state.portfolio = st.session_state.portfolio.append({
-            "Aandeel": aandeel, 
-            "Aantal": aantal, 
-            "Aankoopprijs": aankoopprijs,
-            "Huidige prijs": huidig_prijs,
-            "Winst/Verlies": winst_verlies
-        }, ignore_index=True)
-        
-        st.success(f"Transactie toegevoegd! {aandeel} | {aantal} aandelen gekocht tegen ${aankoopprijs:.2f} per stuk.")
+            winst_verlies = (huidig_prijs - aankoopprijs) * aantal
+
+            # Voeg de transactie toe aan de portefeuille
+            nieuwe_transactie = pd.DataFrame([{
+                "Aandeel": aandeel,
+                "Aantal": aantal,
+                "Aankoopprijs": aankoopprijs,
+                "Huidige prijs": huidig_prijs,
+                "Winst/Verlies": winst_verlies
+            }])
+
+            st.session_state.portfolio = pd.concat([st.session_state.portfolio, nieuwe_transactie], ignore_index=True)
+
+            st.success(f"Transactie toegevoegd! {aandeel} | {aantal} aandelen gekocht tegen ${aankoopprijs:.2f} per stuk.")
+
+        except Exception as e:
+            st.error(f"Er is iets mis gegaan: {e}")
     
     else:
         st.error("Zorg ervoor dat alle velden correct zijn ingevuld!")
@@ -48,4 +54,3 @@ if not st.session_state.portfolio.empty:
     st.metric("Totale Winst/Verlies", f"${totaal_winst_verlies:.2f}")
 else:
     st.warning("Je hebt nog geen aandelen toegevoegd!")
-
