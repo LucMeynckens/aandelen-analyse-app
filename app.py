@@ -35,7 +35,7 @@ scores = []
 for h in headlines:
     score = analyzer.polarity_scores(h)['compound']
     scores.append(score)
-    st.write(f"• {h} ? **Sentiment:** `{score:.2f}`")
+    st.write(f"â€¢ {h} ? **Sentiment:** `{score:.2f}`")
 
 # Gemiddeld sentiment + advies
 avg_sentiment = sum(scores) / len(scores) if scores else 0
