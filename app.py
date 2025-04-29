@@ -1,50 +1,51 @@
 import streamlit as st
 import yfinance as yf
-import requests
-from bs4 import BeautifulSoup
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import pandas as pd
+import numpy as np
 
-st.set_page_config(page_title="Aandelen Dashboard", layout="wide")
-st.title("?? Aandelenanalyse met Koers & Sentiment")
+st.set_page_config(page_title="Portefeuille Beheer", layout="centered")
 
-ticker = st.text_input("Voer een tickersymbool in (bv. AAPL, MSFT, TSLA)", "AAPL")
+st.title("💼 Aandelen Portefeuille Beheer")
 
-# Koersdata ophalen via yfinance
-data = yf.Ticker(ticker)
-hist = data.history(period="1y")
+# Sessie-opslag voor portefeuille
+if "portfolio" not in st.session_state:
+    st.session_state.portfolio = pd.DataFrame(columns=["Aandeel", "Aantal", "Aankoopprijs", "Huidige prijs", "Winst/Verlies"])
 
-col1, col2 = st.columns(2)
-col1.metric("Laatste slotkoers", f"${hist['Close'][-1]:.2f}")
-col2.metric("52W Hoog", f"${hist['High'].max():.2f}")
+# Invoervelden voor nieuwe transactie
+st.subheader("📈 Voeg een transactie toe")
+aandeel = st.text_input("Aandeel Ticker (bijv. AAPL)", "")
+aantal = st.number_input("Aantal Aandelen", min_value=1, step=1)
+aankoopprijs = st.number_input("Aankoopprijs per aandeel ($)", min_value=0.0, step=0.01)
 
-st.line_chart(hist["Close"])
+if st.button("Voeg Transactie Toe"):
+    if aandeel and aantal > 0 and aankoopprijs > 0:
+        # Haal de actuele prijs op via yfinance
+        ticker = yf.Ticker(aandeel)
+        huidig_data = ticker.history(period="1d")
+        huidig_prijs = huidig_data["Close"].iloc[-1]
+        
+        winst_verlies = (huidig_prijs - aankoopprijs) * aantal
 
-# Nieuws headlines ophalen van Yahoo Finance
-st.subheader("?? Nieuws & Sentiment")
+        # Voeg de transactie toe aan de portefeuille
+        st.session_state.portfolio = st.session_state.portfolio.append({
+            "Aandeel": aandeel, 
+            "Aantal": aantal, 
+            "Aankoopprijs": aankoopprijs,
+            "Huidige prijs": huidig_prijs,
+            "Winst/Verlies": winst_verlies
+        }, ignore_index=True)
+        
+        st.success(f"Transactie toegevoegd! {aandeel} | {aantal} aandelen gekocht tegen ${aankoopprijs:.2f} per stuk.")
+    
+    else:
+        st.error("Zorg ervoor dat alle velden correct zijn ingevuld!")
 
-url = f"https://finance.yahoo.com/quote/{ticker}/news"
-headers = {'User-Agent': 'Mozilla/5.0'}
-html = requests.get(url, headers=headers).text
-soup = BeautifulSoup(html, 'html.parser')
-headlines = [tag.text for tag in soup.find_all('h3')][:5]
-
-analyzer = SentimentIntensityAnalyzer()
-scores = []
-
-for h in headlines:
-    score = analyzer.polarity_scores(h)['compound']
-    scores.append(score)
-    st.write(f"• {h} ? **Sentiment:** `{score:.2f}`")
-
-# Gemiddeld sentiment + advies
-avg_sentiment = sum(scores) / len(scores) if scores else 0
-st.write(f"**Gemiddeld sentiment:** `{avg_sentiment:.2f}`")
-
-if avg_sentiment > 0.2:
-    st.success("Positief sentiment ? ?? Koopsignaal")
-elif avg_sentiment < -0.2:
-    st.error("Negatief sentiment ? ?? Verkoopsignaal")
+# Weergave van portefeuille
+st.subheader("📊 Je Portefeuille")
+if not st.session_state.portfolio.empty:
+    st.dataframe(st.session_state.portfolio)
+    totaal_winst_verlies = st.session_state.portfolio["Winst/Verlies"].sum()
+    st.metric("Totale Winst/Verlies", f"${totaal_winst_verlies:.2f}")
 else:
-    st.warning("Neutraal sentiment ? ?? Afwachten")
+    st.warning("Je hebt nog geen aandelen toegevoegd!")
 
